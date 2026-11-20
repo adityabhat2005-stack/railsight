@@ -204,3 +204,29 @@ body.light .advisory-red {
   background: #ffe2e4;
   color: #7d1720;
 }
+.crowd {
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+.crowd-low {
+  background: #173d2b;
+  color: #a9f0c5;
+}
+
+.crowd-moderate {
+  background: #493b19;
+  color: #ffe2a0;
+}
+
+.crowd-high {
+  background: #4a2025;
+  color: #ffc2c7;
+}
+
+.crowd-detail,
+.crowd-note {
+  color: var(--muted);
+  font-size: 12px;
+}
