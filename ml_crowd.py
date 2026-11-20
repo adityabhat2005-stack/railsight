@@ -48,7 +48,7 @@ class CrowdPredictor:
 
     def predict(self, hour: int, day_of_week: int, category_id: int, distance_km: float) -> dict:
         features = np.array([[hour, day_of_week, category_id, distance_km]])
-        pred = int(self.model.predict(features)[0])
+        pred = int(self.model.predict(features).item())
         proba = float(np.max(self.model.predict_proba(features)))
 
         mapping = {
