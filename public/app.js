@@ -10,6 +10,7 @@ function showNotice(message) {
 
 function addStationOptions(select, stations, placeholder) {
   select.replaceChildren(new Option(placeholder, ""));
+
   for (const station of stations) {
     const label = `${station.station_name} (${station.station_code})`;
     select.add(new Option(label, station.station_code));
@@ -19,18 +20,25 @@ function addStationOptions(select, stations, placeholder) {
 async function loadStations() {
   try {
     const response = await fetch("/api/stations");
-    if (!response.ok) throw new Error("Station request failed");
-    const stations = await response.json();
+    if (!response.ok) throw new Error();
 
+    const stations = await response.json();
     addStationOptions(sourceSelect, stations, "Choose a source");
     addStationOptions(destinationSelect, stations, "Choose a destination");
 
     if (!stations.length) {
-      showNotice("No stations have been added to the database yet.");
+      showNotice("No stations are in the database yet.");
     }
   } catch {
-    showNotice("Could not load stations. Please try again later.");
+    showNotice("Could not load stations. Please try again.");
   }
+}
+
+function createTextElement(tag, className, text) {
+  const element = document.createElement(tag);
+  element.className = className;
+  element.textContent = text;
+  return element;
 }
 
 function formatTime(value) {
@@ -44,27 +52,47 @@ function makeCard(train) {
   const card = document.createElement("article");
   card.className = "train-card";
 
-  const title = document.createElement("h3");
-  title.textContent = `${train.train_name} · ${train.train_no}`;
+  card.append(
+    createTextElement("h3", "", train.train_name),
+    createTextElement("p", "train-number", `Train ${train.train_no}`),
+    createTextElement("p", "train-time", formatTime(train.scheduled_departure)),
+    createTextElement(
+      "p",
+      "",
+      `${train.source_station} → ${train.dest_station}`
+    )
+  );
 
-  const time = document.createElement("p");
-  time.className = "train-time";
-  time.textContent = formatTime(train.scheduled_departure);
+  const badges = document.createElement("div");
+  badges.className = "badges";
+  badges.append(
+    createTextElement("span", "badge", train.service_category)
+  );
 
-  const route = document.createElement("p");
-  route.textContent = `${train.source_station} → ${train.dest_station}`;
+  if (train.specialty) {
+    badges.append(createTextElement("span", "badge specialty", "Specialty train"));
+  }
 
-  const category = document.createElement("p");
-  category.textContent = train.specialty
-    ? `Specialty service · ${train.category_name}`
-    : `Unreserved-accessible category · ${train.category_name}`;
+  card.append(badges);
 
-  const advisory = document.createElement("p");
-  advisory.className = "advisory advisory-yellow";
-  advisory.textContent =
-    "Check current ticket requirements and coach availability before boarding.";
+  const accessClass = train.unreserved_access
+    ? "advisory advisory-yellow"
+    : "advisory advisory-red";
 
-  card.append(title, time, route, category, advisory);
+  const accessText = train.unreserved_access
+    ? "Unreserved access is marked in the demo data."
+    : "Unreserved access is not marked for this demo train.";
+
+  card.append(
+    createTextElement("p", accessClass, accessText),
+    createTextElement("p", "ticket-advisory", train.ticket_advisory),
+    createTextElement(
+      "p",
+      "external-booking-note",
+      "To book, use an official railway booking channel. RailSight does not book or issue tickets."
+    )
+  );
+
   return card;
 }
 
@@ -76,7 +104,7 @@ form.addEventListener("submit", async (event) => {
   const destination = destinationSelect.value;
 
   if (!source || !destination || source === destination) {
-    showNotice("Select two different stations.");
+    showNotice("Choose two different stations.");
     return;
   }
 
@@ -87,7 +115,9 @@ form.addEventListener("submit", async (event) => {
     const response = await fetch(`/api/schedules?${params}`);
     const data = await response.json();
 
-    if (!response.ok) throw new Error(data.error || "Search failed");
+    if (!response.ok) {
+      throw new Error(data.error || "Search failed.");
+    }
 
     if (!data.length) {
       showNotice("No matching trains found in the next three hours.");
@@ -95,7 +125,9 @@ form.addEventListener("submit", async (event) => {
     }
 
     showNotice(`${data.length} train(s) found.`);
-    for (const train of data) results.append(makeCard(train));
+    for (const train of data) {
+      results.append(makeCard(train));
+    }
   } catch (error) {
     showNotice(error.message || "Could not load schedules.");
   }
@@ -108,8 +140,10 @@ document.querySelector("#swapButton").addEventListener("click", () => {
 });
 
 const themeButton = document.querySelector("#themeToggle");
-const savedTheme = localStorage.getItem("railsight-theme");
-if (savedTheme === "light") document.body.classList.add("light");
+
+if (localStorage.getItem("railsight-theme") === "light") {
+  document.body.classList.add("light");
+}
 
 themeButton.addEventListener("click", () => {
   document.body.classList.toggle("light");
