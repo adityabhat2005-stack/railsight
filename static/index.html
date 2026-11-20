@@ -71,8 +71,8 @@
     }
     applyTheme(localStorage.getItem("railsight-theme") || "dark");
 
-    function parseStationCode(val) {
-      return val.trim().split(/[\s-]+/).toUpperCase();
+        function parseStationCode(val) {
+      return val.trim().split(/[\s-]+/)[0].toUpperCase();
     }
 
     function swapStations() {
