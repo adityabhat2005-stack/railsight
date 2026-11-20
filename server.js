@@ -39,28 +39,30 @@ app.get("/api/schedules", async (req, res) => {
   const source = String(req.query.source || "").trim().toUpperCase();
   const destination = String(req.query.destination || "").trim().toUpperCase();
 
-  if (!/^[A-Z0-9]{2,10}$/.test(source) ||
-      !/^[A-Z0-9]{2,10}$/.test(destination) ||
-      source === destination) {
-    return res.status(400).json({ error: "Choose two different valid stations." });
+  if (
+    !/^[A-Z0-9]{2,10}$/.test(source) ||
+    !/^[A-Z0-9]{2,10}$/.test(destination) ||
+    source === destination
+  ) {
+    return res.status(400).json({
+      error: "Choose two different valid stations."
+    });
   }
 
   try {
     const result = await pool.query(
       `
       SELECT
-        s.schedule_id,
         t.train_no,
         t.train_name,
         s.source_station,
         s.dest_station,
         s.scheduled_departure,
         s.delay_minutes,
-        s.data_checked_at,
-        c.category_name,
-        c.unreserved_access,
-        c.specialty,
-        c.restricted
+        c.category_name AS service_category,
+        t.specialty,
+        t.unreserved_access,
+        t.ticket_advisory
       FROM schedules s
       JOIN trains t ON t.train_no = s.train_no
       JOIN train_categories c ON c.category_id = t.category_id
@@ -68,8 +70,7 @@ app.get("/api/schedules", async (req, res) => {
         AND s.dest_station = $2
         AND s.scheduled_departure >= NOW()
         AND s.scheduled_departure < NOW() + INTERVAL '3 hours'
-        AND c.unreserved_access = TRUE
-        AND c.restricted = FALSE
+        AND t.unreserved_access = TRUE
       ORDER BY s.scheduled_departure ASC
       LIMIT 100
       `,
