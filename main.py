@@ -1,4 +1,6 @@
 import os
+import random
+import string
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import psycopg2
@@ -6,12 +8,12 @@ from psycopg2.extras import RealDictCursor
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from ml_crowd import predictor
 
-app = FastAPI(title="RailSight Operational Intelligence API")
+app = FastAPI(title="RailSight IRCTC-Style Operational & Booking Portal")
 
-DATABASE_URL = os.getenv("DATABASE_URL")  # Set this in Render Environment Variables
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 def get_db():
     if not DATABASE_URL:
@@ -23,8 +25,11 @@ def add_minutes_to_time(t_obj, mins: int):
     return dt.time()
 
 def round_irctc_fare(raw_fare: float) -> float:
-    # Indian Railways UTS rounds unreserved fares to nearest ₹5
     return float(max(10, round(raw_fare / 5.0) * 5))
+
+def generate_uts_code() -> str:
+    chars = string.ascii_uppercase + string.digits
+    return "X" + "".join(random.choices(chars, k=9))
 
 @app.get("/api/stations")
 def list_stations():
@@ -38,10 +43,10 @@ def list_stations():
 
 @app.get("/api/trains")
 def get_corridor_trains(
-    source: str = Query("MAQ", description="IRCTC Station Code e.g. MAQ, MAJN"),
-    dest: str = Query("CLT", description="IRCTC Station Code e.g. CLT, CAN"),
-    window_hours: int = Query(24, description="3 for 3-hour window, 24 for full day"),
-    day_of_week: int | None = Query(None, description="0=Mon..6=Sun (defaults to today IST)")
+    source: str = Query("MJS"),
+    dest: str = Query("KZE"),
+    window_hours: int = Query(24),
+    day_of_week: int | None = Query(None)
 ):
     src_code = source.strip().upper()
     dst_code = dest.strip().upper()
@@ -55,15 +60,15 @@ def get_corridor_trains(
     conn = get_db()
     try:
         with conn.cursor() as cur:
-            # Validate stations
             cur.execute("SELECT * FROM Stations WHERE station_code IN (%s, %s);", (src_code, dst_code))
-            st_rows = {r["station_code"]: r for r in cur.fetchall()}
+            st_rows = {r.get("station_code"): r for r in cur.fetchall()}
             if src_code not in st_rows or dst_code not in st_rows:
                 raise HTTPException(status_code=404, detail="Invalid IRCTC station code.")
 
-            distance_km = abs(float(st_rows[dst_code]["corridor_km"]) - float(st_rows[src_code]["corridor_km"]))
+            src_st = st_rows.get(src_code)
+            dst_st = st_rows.get(dst_code)
+            distance_km = abs(float(dst_st.get("corridor_km")) - float(src_st.get("corridor_km")))
 
-            # Fetch valid unreserved trains stopping at both source and dest in sequence
             cur.execute("""
                 SELECT
                     tm.train_no, tm.train_name, tm.delay_minutes, tm.live_status_note,
@@ -84,10 +89,9 @@ def get_corridor_trains(
 
             results = []
             for tr in trains:
-                actual_dep = add_minutes_to_time(tr["src_sched"], tr["delay_minutes"])
-                actual_arr = add_minutes_to_time(tr["dst_sched"], tr["delay_minutes"])
+                actual_dep = add_minutes_to_time(tr.get("src_sched"), tr.get("delay_minutes"))
+                actual_arr = add_minutes_to_time(tr.get("dst_sched"), tr.get("delay_minutes"))
 
-                # 3-Hour Window Filter if requested
                 if window_hours == 3:
                     now_mins = now_ist.hour * 60 + now_ist.minute
                     dep_mins = actual_dep.hour * 60 + actual_dep.minute
@@ -95,57 +99,55 @@ def get_corridor_trains(
                     if diff > 180:
                         continue
 
-                # Fetch intermediate route timeline for this train
                 cur.execute("""
                     SELECT station_code, scheduled_time, stop_order
                     FROM Train_Stops
                     WHERE train_no = %s AND stop_order BETWEEN %s AND %s
                     ORDER BY stop_order ASC;
-                """, (tr["train_no"], tr["src_order"], tr["dst_order"]))
+                """, (tr.get("train_no"), tr.get("src_order"), tr.get("dst_order")))
                 stops = cur.fetchall()
 
                 timeline = []
                 for idx, st in enumerate(stops):
-                    st_actual = add_minutes_to_time(st["scheduled_time"], tr["delay_minutes"])
+                    st_actual = add_minutes_to_time(st.get("scheduled_time"), tr.get("delay_minutes"))
                     timeline.append({
-                        "station_code": st["station_code"],
+                        "station_code": st.get("station_code"),
                         "time": st_actual.strftime("%H:%M"),
                         "is_endpoint": idx == 0 or idx == len(stops) - 1
                     })
 
-                # Compute Dynamic Segment Fare
-                raw_fare = max(float(tr["min_fare"]), distance_km * float(tr["base_fare_per_km"])) + float(tr["surcharge"])
+                raw_fare = max(float(tr.get("min_fare")), distance_km * float(tr.get("base_fare_per_km"))) + float(tr.get("surcharge"))
                 uts_fare = round_irctc_fare(raw_fare)
 
-                # Run Random Forest ML Crowd Prediction
                 crowd = predictor.predict(
                     hour=actual_dep.hour,
                     day_of_week=dow,
-                    category_id=tr["category_id"],
+                    category_id=tr.get("category_id"),
                     distance_km=distance_km
                 )
 
                 results.append({
-                    "train_no": tr["train_no"],
-                    "train_name": tr["train_name"],
-                    "category_name": tr["category_name"],
-                    "rake_badge": tr["rake_badge"],
-                    "scheduled_dep": tr["src_sched"].strftime("%H:%M"),
+                    "train_no": tr.get("train_no"),
+                    "train_name": tr.get("train_name"),
+                    "category_id": tr.get("category_id"),
+                    "category_name": tr.get("category_name"),
+                    "rake_badge": tr.get("rake_badge"),
+                    "scheduled_dep": tr.get("src_sched").strftime("%H:%M"),
                     "actual_dep": actual_dep.strftime("%H:%M"),
                     "actual_arr": actual_arr.strftime("%H:%M"),
-                    "delay_minutes": tr["delay_minutes"],
-                    "live_status_note": tr["live_status_note"],
+                    "delay_minutes": tr.get("delay_minutes"),
+                    "live_status_note": tr.get("live_status_note"),
                     "distance_km": round(distance_km, 1),
                     "uts_fare": uts_fare,
-                    "alert_level": tr["alert_level"],
-                    "advisory_text": tr["advisory_text"],
+                    "alert_level": tr.get("alert_level"),
+                    "advisory_text": tr.get("advisory_text"),
                     "crowd": crowd,
                     "timeline": timeline
                 })
 
             return {
-                "source": st_rows[src_code],
-                "dest": st_rows[dst_code],
+                "source": src_st,
+                "dest": dst_st,
                 "distance_km": round(distance_km, 1),
                 "server_time_ist": now_ist.strftime("%I:%M:%S %p"),
                 "count": len(results),
@@ -154,28 +156,91 @@ def get_corridor_trains(
     finally:
         conn.close()
 
-class DelayUpdate(BaseModel):
+class BookingRequest(BaseModel):
+    passenger_name: str = Field(..., min_length=2, max_length=100)
+    source_code: str
+    dest_code: str
     train_no: str
-    delay_minutes: int
+    adults: int = Field(1, ge=1, le=6)
+    children: int = Field(0, ge=0, le=6)
+    journey_type: str = Field("JOURNEY")  # JOURNEY or RETURN
+    payment_mode: str = Field("UPI / QR")
 
-@app.post("/api/simulate-delay")
-def update_delay(payload: DelayUpdate):
-    """Demo endpoint to simulate live train delays during viva/review"""
+@app.post("/api/book")
+def create_ticket_booking(req: BookingRequest):
+    src = req.source_code.strip().upper()
+    dst = req.dest_code.strip().upper()
     conn = get_db()
     try:
         with conn.cursor() as cur:
-            note = f"Delayed by {payload.delay_minutes} mins" if payload.delay_minutes > 0 else "Running on Schedule"
-            cur.execute(
-                "UPDATE Train_Master SET delay_minutes = %s, live_status_note = %s WHERE train_no = %s;",
-                (payload.delay_minutes, note, payload.train_no)
-            )
+            cur.execute("SELECT * FROM Stations WHERE station_code IN (%s, %s);", (src, dst))
+            st_rows = {r.get("station_code"): r for r in cur.fetchall()}
+            if src not in st_rows or dst not in st_rows:
+                raise HTTPException(status_code=400, detail="Invalid station codes.")
+
+            distance_km = abs(float(st_rows.get(dst).get("corridor_km")) - float(st_rows.get(src).get("corridor_km")))
+
+            cur.execute("""
+                SELECT tm.train_no, tm.train_name, tc.category_name,
+                       tc.base_fare_per_km, tc.min_fare, tc.surcharge
+                FROM Train_Master tm
+                JOIN Train_Category tc ON tm.category_id = tc.category_id
+                WHERE tm.train_no = %s AND tc.is_unreserved_allowed = TRUE;
+            """, (req.train_no,))
+            tr = cur.fetchone()
+            if not tr:
+                raise HTTPException(status_code=404, detail="Selected train not eligible for unreserved booking.")
+
+            base_unit = round_irctc_fare(max(float(tr.get("min_fare")), distance_km * float(tr.get("base_fare_per_km"))) + float(tr.get("surcharge")))
+            child_unit = round_irctc_fare(base_unit * 0.5)
+            multiplier = 2 if req.journey_type.upper() == "RETURN" else 1
+            total_fare = round((base_unit * req.adults + child_unit * req.children) * multiplier, 2)
+
+            uts_no = generate_uts_code()
+            cur.execute("""
+                INSERT INTO Booked_Tickets
+                (uts_number, passenger_name, source_code, dest_code, distance_km, train_no, train_name, tier_name, adults, children, journey_type, total_fare, payment_mode)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING *;
+            """, (
+                uts_no, req.passenger_name.strip().upper(), src, dst, round(distance_km, 1),
+                tr.get("train_no"), tr.get("train_name"), tr.get("category_name"),
+                req.adults, req.children, req.journey_type.upper(), total_fare, req.payment_mode
+            ))
+            ticket = cur.fetchone()
             conn.commit()
-            return {"status": "updated", "train_no": payload.train_no, "delay_minutes": payload.delay_minutes}
+            return ticket
     finally:
         conn.close()
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+@app.get("/api/bookings")
+def get_bookings():
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM Booked_Tickets ORDER BY booked_at DESC LIMIT 25;")
+            rows = cur.fetchall()
+            for r in rows:
+                if r.get("booked_at"):
+                    r["booked_at"] = r["booked_at"].strftime("%d-%b-%Y %I:%M %p")
+            return rows
+    finally:
+        conn.close()
 
-@app.get("/")
+@app.post("/api/bookings/{uts_number}/cancel")
+def cancel_booking(uts_number: str):
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE Booked_Tickets SET status = 'CANCELLED' WHERE uts_number = %s RETURNING uts_number;", (uts_number.upper(),))
+            updated = cur.fetchone()
+            if not updated:
+                raise HTTPException(status_code=404, detail="Ticket not found.")
+                conn.commit()
+                return {"status": "CANCELLED", "uts_number": uts_number.upper()}
+    finally:
+        conn.close()
+        app.mount("/static", StaticFiles(directory="static"), name="static")
+        @app.get("/")
 def serve_ui():
     return FileResponse("static/index.html")
