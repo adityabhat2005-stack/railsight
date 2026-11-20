@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101827">
+  <title>RailSight — Unreserved Train Information</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="RailSight home">
+      <span class="brand-mark">R</span>
+      <span>RAILSIGHT<small>UNRESERVED TRAIN INFORMATION</small></span>
+    </a>
+    <button id="themeToggle" class="theme-toggle" type="button"
+            aria-label="Toggle light or dark theme">☼ / ☾</button>
+  </header>
+
+  <main>
+    <section class="intro">
+      <p class="eyebrow">JOURNEY PLANNER · INFORMATION ONLY</p>
+      <h1>Find a suitable train</h1>
+      <p>Search upcoming schedule information for your selected stations.</p>
+    </section>
+
+    <form id="searchForm" class="search-panel">
+      <label>
+        From
+        <select id="source" required>
+          <option value="">Loading stations…</option>
+        </select>
+      </label>
+
+      <button id="swapButton" class="swap" type="button"
+              aria-label="Swap stations">⇄</button>
+
+      <label>
+        To
+        <select id="destination" required>
+          <option value="">Choose a destination</option>
+        </select>
+      </label>
+
+      <button class="search-button" type="submit">Show trains</button>
+    </form>
+
+    <div class="result-heading">
+      <h2>Upcoming trains</h2>
+      <span>Next 3 hours · scheduled data</span>
+    </div>
+
+    <p id="notice" class="notice" role="status">
+      Choose your source and destination to search.
+    </p>
+    <section id="results" class="results" aria-live="polite"></section>
+
+    <p class="disclaimer">
+      RailSight is an independent information tool, not a ticketing service.
+      Schedules and coach availability can change. Confirm current train and
+      ticket requirements with railway staff or official railway information
+      before boarding.
+    </p>
+  </main>
+</body>
+</html>
