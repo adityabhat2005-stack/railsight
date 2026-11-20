@@ -3,172 +3,203 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RAILSIGHT | Operational Intelligence & Live Corridor Tracker</title>
+  <title>RAILSIGHT UTS | IRCTC-Style Commuter Booking &amp; Corridor Portal</title>
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
 
-  <header>
+  <header class="topbar">
     <div class="brand">
-      <h1>RAILSIGHT</h1>
-      <p>Independent Operational Intelligence &amp; Live Status Corridor Tracker</p>
+      <div class="logo-mark">RS</div>
+      <div>
+        <h1>RAILSIGHT <span class="sub-tag">UTS &bull; CORRIDOR PORTAL</span></h1>
+        <p>MAJN / MAQ &harr; CLT Interstate Unreserved Ticketing &amp; Operational Intelligence</p>
+      </div>
     </div>
-    <div class="header-controls">
-      <span class="pill-badge" id="syncClock">Live Sync IST: --:--:--</span>
-      <button class="theme-btn" id="themeToggle" onclick="toggleTheme()">☀ Light Mode</button>
-    </div>
+    <nav class="top-nav">
+      <button class="nav-tab active" id="tabBookBtn" onclick="switchView('book')">1. Search &amp; Book Trains</button>
+      <button class="nav-tab" id="tabDashBtn" onclick="switchView('dashboard')">2. My Bookings &amp; Dashboard (<span id="bookingCounter">0</span>)</button>
+      <span class="ist-pill" id="syncClock">IST: --:--:--</span>
+      <button class="theme-btn" id="themeToggle" onclick="toggleTheme()">☀ Light</button>
+    </nav>
   </header>
 
   <div class="container">
-    <section class="search-panel">
-      <div class="field">
-        <label for="sourceInput">Source Station (IRCTC Code)</label>
-        <input id="sourceInput" list="stationList" value="MAQ" placeholder="e.g. MAQ, MAJN, CLT" />
-      </div>
-      <button class="btn-swap" title="Swap Stations" onclick="swapStations()">⇄</button>
-      <div class="field">
-        <label for="destInput">Destination Station (IRCTC Code)</label>
-        <input id="destInput" list="stationList" value="CLT" placeholder="e.g. CLT, CAN, KGQ" />
-      </div>
-      <div class="field-sm">
-        <label for="windowSelect">Horizon Window</label>
-        <select id="windowSelect" onchange="fetchTrains()">
-          <option value="24" selected>24-Hour Master Grid</option>
-          <option value="3">Next 3-Hour Commuter Window</option>
-        </select>
-      </div>
-      <div class="field-sm">
-        <label for="daySelect">ML Crowd Day Profile</label>
-        <select id="daySelect" onchange="fetchTrains()">
-          <option value="">Auto (Today IST)</option>
-          <option value="0">Monday (Peak Surge)</option>
-          <option value="2">Wednesday (Midweek)</option>
-          <option value="4">Friday (Weekend Rush)</option>
-          <option value="6">Sunday (Off-Peak)</option>
-        </select>
-      </div>
-      <button class="btn-primary" onclick="fetchTrains()">Scan Corridor</button>
-      <datalist id="stationList"></datalist>
-    </section>
 
-    <div class="corridor-strip">
-      <span id="corridorSummary">Corridor Path: Loading...</span>
-      <span id="trainCountBadge">Active Unreserved Rakes: 0</span>
+    <!-- LOGIC FLOW STEPPER -->
+    <div class="stepper" id="flowStepper">
+      <div class="step active" id="step1Badge"><span class="step-num">1</span> Select Corridor &amp; Train</div>
+      <div class="step-line"></div>
+      <div class="step" id="step2Badge"><span class="step-num">2</span> Passenger &amp; Tier Details</div>
+      <div class="step-line"></div>
+      <div class="step" id="step3Badge"><span class="step-num">3</span> TTE Fine Compliance Gate</div>
+      <div class="step-line"></div>
+      <div class="step" id="step4Badge"><span class="step-num">4</span> Digital UTS Pass Issued</div>
     </div>
 
-    <main class="grid" id="trainGrid"></main>
+    <!-- VIEW 1: IRCTC SEARCH & BOOKING -->
+    <section id="viewBook">
+      <div class="search-card">
+        <div class="search-row">
+          <div class="field">
+            <label for="sourceInput">FROM (IRCTC Code / Station)</label>
+            <input id="sourceInput" list="stationList" value="MJS" placeholder="e.g. MJS, MAQ, MAJN" />
+          </div>
+          <button class="btn-swap" title="Swap Stations" onclick="swapStations()">⇄</button>
+          <div class="field">
+            <label for="destInput">TO (IRCTC Code / Station)</label>
+            <input id="destInput" list="stationList" value="KZE" placeholder="e.g. KZE, CAN, CLT" />
+          </div>
+          <div class="field-sm">
+            <label for="classFilter">TRAIN TIER FILTER</label>
+            <select id="classFilter" onchange="renderFilteredTrains()">
+              <option value="ALL">All Unreserved Tiers</option>
+              <option value="ORDINARY">Ordinary / MEMU (Lowest Fare)</option>
+              <option value="EXPRESS">Mail / Express</option>
+              <option value="SUPERFAST">Superfast (SF Surcharge)</option>
+              <option value="SPECIALTY">Antyodaya / Jan Sadharan</option>
+            </select>
+          </div>
+          <div class="field-sm">
+            <label for="windowSelect">TIME HORIZON</label>
+            <select id="windowSelect" onchange="fetchTrains()">
+              <option value="24" selected>24-Hour Full Schedule</option>
+              <option value="3">Next 3-Hour Window</option>
+            </select>
+          </div>
+          <button class="btn-irctc" onclick="fetchTrains()">FIND TRAINS</button>
+        </div>
+
+        <div class="quick-routes">
+          <span>Popular Commuter Segments:</span>
+          <button onclick="setQuickRoute('MAQ','CLT')">MAQ &rarr; CLT</button>
+          <button onclick="setQuickRoute('MJS','KZE')">MJS &rarr; KZE</button>
+          <button onclick="setQuickRoute('MAJN','CAN')">MAJN &rarr; CAN</button>
+          <button onclick="setQuickRoute('KGQ','CLT')">KGQ &rarr; CLT</button>
+          <button onclick="setQuickRoute('CLT','MAQ')">CLT &rarr; MAQ (Return)</button>
+        </div>
+        <datalist id="stationList"></datalist>
+      </div>
+
+      <div class="corridor-bar">
+        <div id="corridorSummary">Corridor: Loading...</div>
+        <div id="trainCountBadge">Eligible Unreserved Trains: 0</div>
+      </div>
+
+      <div class="train-list" id="trainGrid"></div>
+    </section>
+
+    <!-- VIEW 2: MY BOOKINGS & OPERATIONAL DASHBOARD -->
+    <section id="viewDashboard" class="hidden">
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Active UTS Passes</div>
+          <div class="kpi-value" id="kpiActive">0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Total Commuter Spend</div>
+          <div class="kpi-value" id="kpiSpend">&#8377;0.00</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">TTE Fine-Protection Status</div>
+          <div class="kpi-value safe-txt">100% COMPLIANT</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Active Corridor</div>
+          <div class="kpi-value">MAJN/MAQ &harr; CLT</div>
+        </div>
+      </div>
+
+      <div class="dash-header">
+        <h2>Booked Unreserved Tickets &amp; Digital Passes</h2>
+        <button class="btn-outline" onclick="loadBookings()">Refresh Passes</button>
+      </div>
+      <div class="bookings-grid" id="bookingsGrid"></div>
+    </section>
+
   </div>
 
-  <script>
-    function applyTheme(theme) {
-      document.documentElement.setAttribute("data-theme", theme);
-      localStorage.setItem("railsight-theme", theme);
-      document.getElementById("themeToggle").textContent = theme === "dark" ? "☀ Light Mode" : "🌙 Dark Mode";
-    }
-    function toggleTheme() {
-      const current = document.documentElement.getAttribute("data-theme");
-      applyTheme(current === "dark" ? "light" : "dark");
-    }
-    applyTheme(localStorage.getItem("railsight-theme") || "dark");
+  <!-- IRCTC BOOKING WIZARD MODAL (STEPS 2, 3, 4) -->
+  <div class="modal-backdrop hidden" id="bookingModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div>
+          <span class="modal-kicker">UNRESERVED TICKETING SYSTEM (UTS)</span>
+          <h3 id="modalTrainTitle">Train Booking</h3>
+        </div>
+        <button class="close-btn" onclick="closeBookingModal()">&times;</button>
+      </div>
 
-            function parseStationCode(val) {
-      return val.trim().split(/[\s-]+/).at(0).toUpperCase();
-    }
+      <!-- STEP 2 & 3 FORM -->
+      <div id="modalFormStep">
+        <div class="route-summary-banner" id="modalRouteBanner"></div>
 
-    function swapStations() {
-      const s = document.getElementById("sourceInput");
-      const d = document.getElementById("destInput");
-      [s.value, d.value] = [d.value, s.value];
-      fetchTrains();
-    }
+        <div class="form-grid">
+          <div class="field">
+            <label for="paxName">Primary Commuter Full Name *</label>
+            <input id="paxName" type="text" placeholder="Enter passenger name" />
+          </div>
+          <div class="field-sm">
+            <label for="paxAdults">Adults (12+ yrs)</label>
+            <select id="paxAdults" onchange="recalcModalFare()">
+              <option value="1" selected>1 Adult</option>
+              <option value="2">2 Adults</option>
+              <option value="3">3 Adults</option>
+              <option value="4">4 Adults</option>
+            </select>
+          </div>
+          <div class="field-sm">
+            <label for="paxChildren">Children (5-11 yrs)</label>
+            <select id="paxChildren" onchange="recalcModalFare()">
+              <option value="0" selected>0 Children</option>
+              <option value="1">1 Child</option>
+              <option value="2">2 Children</option>
+            </select>
+          </div>
+          <div class="field-sm">
+            <label for="journeyType">Ticket Type</label>
+            <select id="journeyType" onchange="recalcModalFare()">
+              <option value="JOURNEY" selected>Single Journey (One-Way)</option>
+              <option value="RETURN">Return Journey (2x Fare)</option>
+            </select>
+          </div>
+          <div class="field-sm">
+            <label for="payMode">Payment Gateway Mode</label>
+            <select id="payMode">
+              <option value="IRCTC R-Wallet">IRCTC R-Wallet (Zero Fee)</option>
+              <option value="UPI / QR Instant">UPI / QR Instant</option>
+              <option value="Debit Card / NetBanking">Debit Card / NetBanking</option>
+            </select>
+          </div>
+        </div>
 
-    async function loadStations() {
-      try {
-        const res = await fetch("/api/stations");
-        if (!res.ok) return;
-        const stations = await res.json();
-        document.getElementById("stationList").innerHTML =
-          stations.map(st => `<option value="${st.station_code} - ${st.station_name}"></option>`).join("");
-      } catch (e) {}
-    }
+        <div class="compliance-box" id="modalComplianceBox"></div>
 
-    async function fetchTrains() {
-      const src = parseStationCode(document.getElementById("sourceInput").value || "MAQ");
-      const dst = parseStationCode(document.getElementById("destInput").value || "CLT");
-      const win = document.getElementById("windowSelect").value;
-      const dow = document.getElementById("daySelect").value;
+        <label class="checkbox-row">
+          <input type="checkbox" id="tteAckCheckbox" checked />
+          <span>I confirm I am purchasing the exact tier ticket required for this train category to avoid statutory TTE penalties.</span>
+        </label>
 
-      let url = `/api/trains?source=${encodeURIComponent(src)}&dest=${encodeURIComponent(dst)}&window_hours=${win}`;
-      if (dow !== "") url += `&day_of_week=${dow}`;
+        <div class="modal-footer">
+          <div>
+            <span class="meta-label">TOTAL PAYABLE FARE</span>
+            <div class="modal-price" id="modalTotalFare">&#8377;0.00</div>
+          </div>
+          <button class="btn-irctc" onclick="submitTicketBooking()">PROCEED &amp; ISSUE UTS PASS &rarr;</button>
+        </div>
+      </div>
 
-      const grid = document.getElementById("trainGrid");
-      grid.innerHTML = `<p style="padding:20px;color:var(--text-secondary)">Scanning corridor telemetry...</p>`;
+      <!-- STEP 4 RECEIPT -->
+      <div id="modalReceiptStep" class="hidden">
+        <div class="receipt-card" id="receiptContent"></div>
+        <div class="modal-footer">
+          <button class="btn-outline" onclick="closeBookingModal()">Close</button>
+          <button class="btn-irctc" onclick="goToDashboardAfterBook()">View in My Bookings Dashboard &rarr;</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-      try {
-        const res = await fetch(url);
-        const data = await res.json();
-        if (!res.ok) {
-          grid.innerHTML = `<p style="padding:20px;color:var(--crit-text)">${data.detail || "Error loading corridor"}</p>`;
-          return;
-        }
-
-        document.getElementById("syncClock").textContent = `Live Sync IST: ${data.server_time_ist}`;
-        document.getElementById("corridorSummary").innerHTML =
-          `Corridor Path: <strong>${data.source.station_name} (${data.source.station_code}) &rarr; ${data.dest.station_name} (${data.dest.station_code})</strong> &bull; Distance: <strong>${data.distance_km} km</strong>`;
-        document.getElementById("trainCountBadge").textContent = `Unreserved Rakes Found: ${data.count}`;
-
-        if (data.trains.length === 0) {
-          grid.innerHTML = `<p style="padding:20px;color:var(--text-secondary)">No unreserved trains found in this window. Switch to 24-Hour Master Grid.</p>`;
-          return;
-        }
-
-        grid.innerHTML = data.trains.map(t => `
-          <article class="card">
-            <div>
-              <div class="card-top">
-                <div>
-                  <div class="train-title">${t.train_name}</div>
-                  <span class="rake-badge">${t.rake_badge}</span>
-                </div>
-                <span class="train-no">#${t.train_no}</span>
-              </div>
-              <div class="meta-row">
-                <div>
-                  <div class="meta-label">Service Tier</div>
-                  <div class="meta-val">${t.category_name}</div>
-                </div>
-                <div style="text-align:right;">
-                  <div class="meta-label">Actual Dep ${t.delay_minutes > 0 ? `(+${t.delay_minutes}m)` : ''}</div>
-                  <div class="dep-time">${t.actual_dep}</div>
-                </div>
-              </div>
-              <div class="fare-row">
-                <span class="meta-label">UTS Counter Fare: </span>
-                <span class="fare-val">&#8377;${t.uts_fare.toFixed(2)}</span>
-              </div>
-              <div class="crowd-box crowd-${t.crowd.level}">
-                AI Crowd Forecast (RF): ${t.crowd.label} (${t.crowd.confidence}%)
-              </div>
-              <div class="timeline">
-                <div class="status-note">&bull; Live Track: ${t.live_status_note}</div>
-                <ul class="stop-list">
-                  ${t.timeline.map(s => `
-                    <li class="${s.is_endpoint ? 'endpoint' : ''}">
-                      <span class="dot"></span> ${s.station_code} (${s.time})
-                    </li>
-                  `).join("")}
-                </ul>
-              </div>
-            </div>
-            <div class="advisory adv-${t.alert_level}">${t.advisory_text}</div>
-          </article>
-        `).join("");
-      } catch (err) {
-        grid.innerHTML = `<p style="padding:20px;color:var(--crit-text)">Network error connecting to backend API.</p>`;
-      }
-    }
-
-    loadStations().then(fetchTrains);
-  </script>
+  <script src="/static/app.js"></script>
 </body>
 </html>
