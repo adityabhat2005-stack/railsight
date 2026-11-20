@@ -148,3 +148,59 @@ body.light .advisory-yellow { background: #fff1cb; color: #694200; }
   .search-button { grid-column: 1 / -1; min-height: 46px; }
   .result-heading { display: block; }
 }
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 10px 0;
+}
+
+.badge {
+  display: inline-block;
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  background: var(--panel2);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.badge.specialty {
+  color: #b9e5ff;
+  border-color: #2878a8;
+}
+
+.train-number,
+.ticket-advisory,
+.external-booking-note {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.advisory-yellow,
+.advisory-red {
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.advisory-yellow {
+  background: #4a3919;
+  color: #ffe2a0;
+}
+
+.advisory-red {
+  background: #4a2025;
+  color: #ffc2c7;
+}
+
+body.light .advisory-yellow {
+  background: #fff1cb;
+  color: #694200;
+}
+
+body.light .advisory-red {
+  background: #ffe2e4;
+  color: #7d1720;
+}
