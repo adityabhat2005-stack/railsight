@@ -4,236 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>RAILSIGHT | Operational Intelligence & Live Corridor Tracker</title>
-  <style>
-    :root[data-theme="dark"] {
-      --bg-body: #070b14;
-      --bg-header: #0d1424;
-      --bg-card: #0f172a;
-      --bg-subcard: #090e1a;
-      --border-color: #1e293b;
-      --text-primary: #f1f5f9;
-      --text-secondary: #94a3b8;
-      --accent-blue: #38bdf8;
-      --safe-bg: rgba(16, 185, 129, 0.12);
-      --safe-border: #10b981;
-      --safe-text: #34d399;
-      --warn-bg: rgba(245, 158, 11, 0.12);
-      --warn-border: #f59e0b;
-      --warn-text: #fbbf24;
-      --crit-bg: rgba(239, 68, 68, 0.14);
-      --crit-border: #ef4444;
-      --crit-text: #f87171;
-    }
-
-    :root[data-theme="light"] {
-      --bg-body: #f1f5f9;
-      --bg-header: #ffffff;
-      --bg-card: #ffffff;
-      --bg-subcard: #f8fafc;
-      --border-color: #cbd5e1;
-      --text-primary: #0f172a;
-      --text-secondary: #475569;
-      --accent-blue: #0284c7;
-      --safe-bg: #ecfdf5;
-      --safe-border: #059669;
-      --safe-text: #065f46;
-      --warn-bg: #fffbeb;
-      --warn-border: #d97706;
-      --warn-text: #92400e;
-      --crit-bg: #fef2f2;
-      --crit-border: #dc2626;
-      --crit-text: #991b1b;
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
-    body { background: var(--bg-body); color: var(--text-primary); transition: background 0.2s, color 0.2s; padding-bottom: 40px; }
-
-    /* Top Header */
-    header {
-      background: var(--bg-header);
-      border-bottom: 1px solid var(--border-color);
-      padding: 16px 24px;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-    }
-    .brand h1 { font-size: 1.5rem; letter-spacing: 1.5px; color: var(--accent-blue); font-weight: 800; }
-    .brand p { font-size: 0.78rem; color: var(--text-secondary); }
-
-    .header-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .pill-badge {
-      background: var(--bg-subcard);
-      border: 1px solid var(--border-color);
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 0.78rem;
-      color: var(--safe-text);
-      font-weight: 600;
-    }
-    .theme-btn {
-      background: var(--bg-subcard);
-      border: 1px solid var(--border-color);
-      color: var(--text-primary);
-      padding: 6px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.8rem;
-      font-weight: 600;
-    }
-
-    /* Search & Corridor Bar */
-    .search-panel {
-      max-width: 1360px;
-      margin: 18px auto;
-      padding: 16px 20px;
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: 10px;
-      display: grid;
-      grid-template-columns: 1fr auto 1fr auto auto auto;
-      gap: 12px;
-      align-items: end;
-    }
-    @media (max-width: 900px) {
-      .search-panel { grid-template-columns: 1fr; }
-    }
-    .field label { display: block; font-size: 0.72rem; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 5px; font-weight: 700; }
-    .field input, .field select {
-      width: 100%;
-      padding: 10px 12px;
-      background: var(--bg-subcard);
-      border: 1px solid var(--border-color);
-      color: var(--text-primary);
-      border-radius: 6px;
-      font-size: 0.92rem;
-      font-weight: 600;
-    }
-    .btn-primary {
-      background: var(--accent-blue);
-      color: #04101f;
-      border: none;
-      padding: 10px 18px;
-      border-radius: 6px;
-      font-weight: 800;
-      cursor: pointer;
-      font-size: 0.9rem;
-    }
-    .btn-swap {
-      background: var(--bg-subcard);
-      border: 1px solid var(--border-color);
-      color: var(--text-primary);
-      padding: 10px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 700;
-    }
-
-    /* Corridor Status Strip */
-    .corridor-strip {
-      max-width: 1360px;
-      margin: 0 auto 16px;
-      padding: 10px 16px;
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      display: flex;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 8px;
-      font-size: 0.82rem;
-    }
-
-    /* 4-Column Responsive Grid */
-    .grid {
-      max-width: 1360px;
-      margin: 0 auto;
-      padding: 0 12px;
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
-      gap: 16px;
-    }
-
-    .card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: 10px;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      gap: 12px;
-    }
-    .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-    .train-title { font-size: 1.05rem; font-weight: 700; line-height: 1.25; }
-    .train-no { font-size: 0.78rem; color: var(--accent-blue); font-weight: 700; }
-
-    .rake-badge {
-      display: inline-block;
-      margin-top: 5px;
-      font-size: 0.66rem;
-      font-weight: 800;
-      padding: 3px 8px;
-      border-radius: 4px;
-      background: var(--bg-subcard);
-      border: 1px solid var(--border-color);
-      color: var(--text-secondary);
-      letter-spacing: 0.4px;
-    }
-
-    .meta-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-top: 1px solid var(--border-color);
-      padding-top: 10px;
-    }
-    .meta-label { font-size: 0.7rem; color: var(--text-secondary); }
-    .meta-val { font-size: 0.92rem; font-weight: 700; }
-    .dep-time { font-size: 1.15rem; font-weight: 800; color: var(--text-primary); }
-
-    .fare-val { font-size: 1rem; font-weight: 800; color: var(--accent-blue); }
-
-    /* ML Crowd Box */
-    .crowd-box {
-      background: var(--bg-subcard);
-      border-left: 3px solid var(--accent-blue);
-      padding: 8px 10px;
-      border-radius: 4px;
-      font-size: 0.78rem;
-      font-weight: 600;
-    }
-    .crowd-HIGH { border-left-color: #ef4444; }
-    .crowd-MEDIUM { border-left-color: #f59e0b; }
-    .crowd-LOW { border-left-color: #10b981; }
-
-    /* Route Timeline */
-    .timeline {
-      background: var(--bg-subcard);
-      padding: 10px 12px;
-      border-radius: 6px;
-      font-size: 0.76rem;
-    }
-    .status-note { color: var(--text-secondary); margin-bottom: 6px; font-style: italic; }
-    .stop-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
-    .stop-list li { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); }
-    .stop-list li.endpoint { color: var(--text-primary); font-weight: 700; }
-    .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-blue); }
-
-    /* Advisory Banner */
-    .advisory {
-      padding: 10px 12px;
-      border-radius: 6px;
-      font-size: 0.75rem;
-      line-height: 1.35;
-      font-weight: 600;
-      border: 1px solid;
-    }
-    .adv-SAFE { background: var(--safe-bg); border-color: var(--safe-border); color: var(--safe-text); }
-    .adv-WARNING { background: var(--warn-bg); border-color: var(--warn-border); color: var(--warn-text); }
-    .adv-CRITICAL { background: var(--crit-bg); border-color: var(--crit-border); color: var(--crit-text); }
-  </style>
+  <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
 
@@ -248,46 +19,47 @@
     </div>
   </header>
 
-  <section class="search-panel">
-    <div class="field">
-      <label for="sourceInput">Source Station (IRCTC Code or Name)</label>
-      <input id="sourceInput" list="stationList" value="MAQ" placeholder="e.g. MAQ or MAJN" />
-    </div>
-    <button class="btn-swap" title="Swap Stations" onclick="swapStations()">⇄</button>
-    <div class="field">
-      <label for="destInput">Destination Station (IRCTC Code or Name)</label>
-      <input id="destInput" list="stationList" value="CLT" placeholder="e.g. CLT or CAN" />
-    </div>
-    <div class="field">
-      <label for="windowSelect">Horizon Window</label>
-      <select id="windowSelect" onchange="fetchTrains()">
-        <option value="24" selected>24-Hour Master Grid</option>
-        <option value="3">Next 3-Hour Commuter Window</option>
-      </select>
-    </div>
-    <div class="field">
-      <label for="daySelect">ML Crowd Day Profile</label>
-      <select id="daySelect" onchange="fetchTrains()">
-        <option value="">Auto (Today IST)</option>
-        <option value="0">Monday (Peak Surge)</option>
-        <option value="2">Wednesday (Midweek)</option>
-        <option value="4">Friday (Weekend Rush)</option>
-        <option value="6">Sunday (Off-Peak)</option>
-      </select>
-    </div>
-    <button class="btn-primary" onclick="fetchTrains()">Scan Corridor</button>
-    <datalist id="stationList"></datalist>
-  </section>
+  <div class="container">
+    <section class="search-panel">
+      <div class="field">
+        <label for="sourceInput">Source Station (IRCTC Code)</label>
+        <input id="sourceInput" list="stationList" value="MAQ" placeholder="e.g. MAQ, MAJN, CLT" />
+      </div>
+      <button class="btn-swap" title="Swap Stations" onclick="swapStations()">⇄</button>
+      <div class="field">
+        <label for="destInput">Destination Station (IRCTC Code)</label>
+        <input id="destInput" list="stationList" value="CLT" placeholder="e.g. CLT, CAN, KGQ" />
+      </div>
+      <div class="field-sm">
+        <label for="windowSelect">Horizon Window</label>
+        <select id="windowSelect" onchange="fetchTrains()">
+          <option value="24" selected>24-Hour Master Grid</option>
+          <option value="3">Next 3-Hour Commuter Window</option>
+        </select>
+      </div>
+      <div class="field-sm">
+        <label for="daySelect">ML Crowd Day Profile</label>
+        <select id="daySelect" onchange="fetchTrains()">
+          <option value="">Auto (Today IST)</option>
+          <option value="0">Monday (Peak Surge)</option>
+          <option value="2">Wednesday (Midweek)</option>
+          <option value="4">Friday (Weekend Rush)</option>
+          <option value="6">Sunday (Off-Peak)</option>
+        </select>
+      </div>
+      <button class="btn-primary" onclick="fetchTrains()">Scan Corridor</button>
+      <datalist id="stationList"></datalist>
+    </section>
 
-  <div class="corridor-strip">
-    <span id="corridorSummary">Corridor Path: Loading...</span>
-    <span id="trainCountBadge">Active Unreserved Rakes: 0</span>
+    <div class="corridor-strip">
+      <span id="corridorSummary">Corridor Path: Loading...</span>
+      <span id="trainCountBadge">Active Unreserved Rakes: 0</span>
+    </div>
+
+    <main class="grid" id="trainGrid"></main>
   </div>
 
-  <main class="grid" id="trainGrid"></main>
-
   <script>
-    // Theme Management
     function applyTheme(theme) {
       document.documentElement.setAttribute("data-theme", theme);
       localStorage.setItem("railsight-theme", theme);
@@ -298,3 +70,105 @@
       applyTheme(current === "dark" ? "light" : "dark");
     }
     applyTheme(localStorage.getItem("railsight-theme") || "dark");
+
+    function parseStationCode(val) {
+      return val.trim().split(/[\s-]+/).toUpperCase();
+    }
+
+    function swapStations() {
+      const s = document.getElementById("sourceInput");
+      const d = document.getElementById("destInput");
+      [s.value, d.value] = [d.value, s.value];
+      fetchTrains();
+    }
+
+    async function loadStations() {
+      try {
+        const res = await fetch("/api/stations");
+        if (!res.ok) return;
+        const stations = await res.json();
+        document.getElementById("stationList").innerHTML =
+          stations.map(st => `<option value="${st.station_code} - ${st.station_name}"></option>`).join("");
+      } catch (e) {}
+    }
+
+    async function fetchTrains() {
+      const src = parseStationCode(document.getElementById("sourceInput").value || "MAQ");
+      const dst = parseStationCode(document.getElementById("destInput").value || "CLT");
+      const win = document.getElementById("windowSelect").value;
+      const dow = document.getElementById("daySelect").value;
+
+      let url = `/api/trains?source=${encodeURIComponent(src)}&dest=${encodeURIComponent(dst)}&window_hours=${win}`;
+      if (dow !== "") url += `&day_of_week=${dow}`;
+
+      const grid = document.getElementById("trainGrid");
+      grid.innerHTML = `<p style="padding:20px;color:var(--text-secondary)">Scanning corridor telemetry...</p>`;
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        if (!res.ok) {
+          grid.innerHTML = `<p style="padding:20px;color:var(--crit-text)">${data.detail || "Error loading corridor"}</p>`;
+          return;
+        }
+
+        document.getElementById("syncClock").textContent = `Live Sync IST: ${data.server_time_ist}`;
+        document.getElementById("corridorSummary").innerHTML =
+          `Corridor Path: <strong>${data.source.station_name} (${data.source.station_code}) &rarr; ${data.dest.station_name} (${data.dest.station_code})</strong> &bull; Distance: <strong>${data.distance_km} km</strong>`;
+        document.getElementById("trainCountBadge").textContent = `Unreserved Rakes Found: ${data.count}`;
+
+        if (data.trains.length === 0) {
+          grid.innerHTML = `<p style="padding:20px;color:var(--text-secondary)">No unreserved trains found in this window. Switch to 24-Hour Master Grid.</p>`;
+          return;
+        }
+
+        grid.innerHTML = data.trains.map(t => `
+          <article class="card">
+            <div>
+              <div class="card-top">
+                <div>
+                  <div class="train-title">${t.train_name}</div>
+                  <span class="rake-badge">${t.rake_badge}</span>
+                </div>
+                <span class="train-no">#${t.train_no}</span>
+              </div>
+              <div class="meta-row">
+                <div>
+                  <div class="meta-label">Service Tier</div>
+                  <div class="meta-val">${t.category_name}</div>
+                </div>
+                <div style="text-align:right;">
+                  <div class="meta-label">Actual Dep ${t.delay_minutes > 0 ? `(+${t.delay_minutes}m)` : ''}</div>
+                  <div class="dep-time">${t.actual_dep}</div>
+                </div>
+              </div>
+              <div class="fare-row">
+                <span class="meta-label">UTS Counter Fare: </span>
+                <span class="fare-val">&#8377;${t.uts_fare.toFixed(2)}</span>
+              </div>
+              <div class="crowd-box crowd-${t.crowd.level}">
+                AI Crowd Forecast (RF): ${t.crowd.label} (${t.crowd.confidence}%)
+              </div>
+              <div class="timeline">
+                <div class="status-note">&bull; Live Track: ${t.live_status_note}</div>
+                <ul class="stop-list">
+                  ${t.timeline.map(s => `
+                    <li class="${s.is_endpoint ? 'endpoint' : ''}">
+                      <span class="dot"></span> ${s.station_code} (${s.time})
+                    </li>
+                  `).join("")}
+                </ul>
+              </div>
+            </div>
+            <div class="advisory adv-${t.alert_level}">${t.advisory_text}</div>
+          </article>
+        `).join("");
+      } catch (err) {
+        grid.innerHTML = `<p style="padding:20px;color:var(--crit-text)">Network error connecting to backend API.</p>`;
+      }
+    }
+
+    loadStations().then(fetchTrains);
+  </script>
+</body>
+</html>
