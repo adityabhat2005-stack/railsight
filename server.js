@@ -1,6 +1,7 @@
 const express = require("express");
 const { Pool } = require("pg");
 const path = require("path");
+const { RandomForestClassifier } = require("ml-random-forest");
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -19,6 +20,104 @@ const pool = new Pool({
 });
 
 app.use(express.static(path.join(__dirname, "public")));
+
+// Demo labels: 0 = Low, 1 = Moderate, 2 = High.
+// These are invented training examples, not measured passenger counts.
+function demoCrowdLabel(day, hour) {
+  const weekend = day === 0 || day === 6;
+
+  if (weekend && hour >= 10 && hour <= 17) return 2;
+  if (!weekend && ((hour >= 6 && hour <= 9) || (hour >= 16 && hour <= 19))) {
+    return 2;
+  }
+  if (hour >= 10 && hour <= 15) return 1;
+  if (weekend && hour >= 8 && hour <= 9) return 1;
+  return 0;
+}
+
+const trainingFeatures = [];
+const trainingLabels = [];
+
+for (let day = 0; day < 7; day++) {
+  for (let hour = 5; hour <= 23; hour++) {
+    // Repeat each synthetic day/hour example to give the demo classifier
+    // more training rows. This does not make it real-world crowd data.
+    for (let repeat = 0; repeat < 5; repeat++) {
+      trainingFeatures.push([day, hour]);
+      trainingLabels.push(demoCrowdLabel(day, hour));
+    }
+  }
+}
+
+const crowdModel = new RandomForestClassifier({
+  seed: 42,
+  maxFeatures: 2,
+  replacement: true,
+  nEstimators: 30
+});
+
+crowdModel.train(trainingFeatures, trainingLabels);
+
+const crowdNames = ["Low", "Moderate", "High"];
+const weekdayNumbers = {
+  Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6
+};
+
+function getIstFeatures(dateValue) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Kolkata",
+    weekday: "short",
+    hour: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(new Date(dateValue));
+
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return {
+    day: weekdayNumbers[values.weekday],
+    hour: Number(values.hour),
+    weekday: values.weekday
+  };
+}
+
+function addCrowdPredictions(rows) {
+  const predictions = crowdModel.predict(
+    rows.map((row) => {
+      const features = getIstFeatures(row.scheduled_departure);
+      return [features.day, features.hour];
+    })
+  );
+
+  const withCrowd = rows.map((row, index) => {
+    const features = getIstFeatures(row.scheduled_departure);
+    const crowdScore = Number(predictions[index]);
+
+    return {
+      ...row,
+      crowd_level: crowdNames[crowdScore] || "Moderate",
+      crowd_weekday: features.weekday,
+      crowd_time_band:
+        features.hour < 12 ? "Morning" :
+        features.hour < 17 ? "Afternoon" : "Evening",
+      crowd_forecast_type: "Synthetic demo estimate",
+      crowd_score: crowdScore
+    };
+  });
+
+  // Rank by expected crowd: lower crowd gets rank 1.
+  // Keep the final results in departure-time order.
+  const ranked = [...withCrowd].sort(
+    (a, b) =>
+      a.crowd_score - b.crowd_score ||
+      new Date(a.scheduled_departure) - new Date(b.scheduled_departure)
+  );
+
+  ranked.forEach((row, index) => {
+    row.crowd_rank = index + 1;
+    row.crowd_total = ranked.length;
+  });
+
+  return withCrowd;
+}
 
 app.get("/api/stations", async (_req, res) => {
   try {
@@ -78,7 +177,7 @@ app.get("/api/schedules", async (req, res) => {
     );
 
     res.set("Cache-Control", "no-store");
-    res.json(result.rows);
+    res.json(addCrowdPredictions(result.rows));
   } catch (error) {
     console.error("Schedule query failed:", error.message);
     res.status(500).json({ error: "Could not load schedules." });
